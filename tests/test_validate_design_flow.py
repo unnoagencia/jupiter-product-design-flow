@@ -329,6 +329,22 @@ class ValidatorTests(unittest.TestCase):
         self.assertFalse(result["ok"])
         self.assertTrue(any("cannot read DESIGN_BRIEF.md" in error for error in result["errors"]))
 
+    def test_portuguese_todos_is_not_treated_as_todo_marker(self) -> None:
+        temp, root = self.make_feature()
+        self.addCleanup(temp.cleanup)
+        with (root / "TASKS.md").open("a", encoding="utf-8") as handle:
+            handle.write("\nTodos os casos relevantes foram verificados.\n")
+        self.assertTrue(MODULE.validate(root, False)["ok"])
+
+    def test_literal_todo_marker_is_blocking(self) -> None:
+        temp, root = self.make_feature()
+        self.addCleanup(temp.cleanup)
+        with (root / "TASKS.md").open("a", encoding="utf-8") as handle:
+            handle.write("\nTODO revisar este fluxo.\n")
+        result = MODULE.validate(root, False)
+        self.assertFalse(result["ok"])
+        self.assertTrue(any("unfilled template" in error for error in result["errors"]))
+
     def test_unfilled_placeholder_is_blocking(self) -> None:
         temp, root = self.make_feature()
         self.addCleanup(temp.cleanup)

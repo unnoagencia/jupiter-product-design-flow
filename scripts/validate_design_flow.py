@@ -26,7 +26,7 @@ REQUIRED_HEADINGS = {
 }
 
 PLACEHOLDER_RE = re.compile(
-    r"TODO|\[(?:Feature|slug|Problema|Incluído|Excluído|nome|arquivo|nota|"
+    r"\bTODO\b|\[(?:Feature|slug|Problema|Incluído|Excluído|nome|arquivo|nota|"
     r"Prioridade|Fluxo|condição|resultado|Hipótese|identificador|Data)\b[^\]]*\]",
     re.IGNORECASE,
 )
