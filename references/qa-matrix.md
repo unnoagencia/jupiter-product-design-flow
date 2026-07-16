@@ -61,6 +61,8 @@ Quando o produto tiver breakpoint próprio, use-o além dos valores acima.
 
 ## Evidência automatizada
 
+O validador aceita evidência visual em **PNG não interlaçado**. A imagem precisa ter estrutura completa, chunks críticos conhecidos e ordenados, CRCs válidos, dimensões positivas, arquivo de até 25 MB, no máximo 50 milhões de pixels e dados de scanline decodificáveis dentro do limite de 128 MB. JPEG, WebP e PNG Adam7/interlaçado devem ser convertidos para PNG não interlaçado antes da validação.
+
 ### Playwright CLI
 
 Quando disponível:
@@ -73,11 +75,10 @@ npx playwright screenshot --viewport-size="1280,800" --full-page http://127.0.0.
 ### HyperFrames
 
 ```bash
-npx hyperframes lint . --json
-npx hyperframes check . --json --at <tempos-relevantes>
+npx hyperframes check . --json --snapshots --at <tempos-relevantes>
 ```
 
-Use Browser Vision para avaliação visual; use console/terminal para erros e respostas de runtime.
+Copie as imagens geradas para `.design/<feature>/screenshots/` com nomes descritivos. O comando `check` já executa lint; não rode `lint` separadamente sem motivo. Use Browser Vision para avaliação visual e console/terminal para erros e respostas de runtime.
 
 ## Severidade
 

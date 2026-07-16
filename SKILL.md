@@ -1,6 +1,6 @@
 ---
 name: jupiter-product-design-flow
-description: "Use when designing, redesigning, building, or reviewing a branded digital product, portal, dashboard, multi-step flow, or complex website for Júpiter/UNNO. Converts business intent into a persistent design brief, optional information architecture, brand-bound implementation plan, working artifact, and evidence-based visual QA without forcing the user through ceremonial checkpoints."
+description: "Use when designing, redesigning, building, or reviewing a branded digital product, portal, dashboard, multi-step flow, or complex website for Júpiter. Converts business intent into a persistent design brief, optional information architecture, brand-bound implementation plan, working artifact, and evidence-based visual QA without forcing the user through ceremonial checkpoints."
 version: 1.0.0
 author: Júpiter Tech
 license: Apache-2.0
@@ -97,7 +97,7 @@ Inspecione antes de entrevistar:
 - brandbooks locais ou caminhos canônicos conhecidos;
 - conteúdo real disponível; não use lorem ipsum quando o material existir.
 
-Para projetos Júpiter, procure primeiro o manual canônico em `/root/workspace/brandbooks/jupiter-tech-manual` quando o ambiente tiver esse caminho. Consulte `references/brand-routing.md`.
+Para projetos Júpiter, descubra primeiro brandbooks e tokens dentro do repositório ou em um caminho configurado. Use `/root/workspace/brandbooks/jupiter-tech-manual` apenas como fallback quando existir. Consulte `references/brand-routing.md`.
 
 Faça ao usuário apenas perguntas que:
 
@@ -214,7 +214,7 @@ Rotas de evidência, em ordem de adequação:
 
 1. screenshots automatizados via Playwright disponível no projeto;
 2. Browser Vision para inspeção visual e interação;
-3. HyperFrames `lint` e `check` para composições HyperFrames;
+3. HyperFrames `check --snapshots` para composições HyperFrames;
 4. screenshots fornecidos pelo usuário apenas quando o ambiente não puder abrir a aplicação.
 
 Capture ao menos:
@@ -236,7 +236,9 @@ Use `references/qa-matrix.md`. Registre em `DESIGN_REVIEW.md`:
 
 Não elogie para preencher espaço. Preserve explicitamente o que funciona, porque revisão que só remove defeito também pode remover personalidade.
 
-**Concluído quando:** problemas críticos foram corrigidos ou aceitos explicitamente, e cada afirmação visual importante aponta para evidência.
+O agente não pode dispensar um Must-fix. Somente o responsável humano pelo projeto pode aceitar um defeito crítico. O review deve registrar nome, papel, data da autorização, justificativa e impacto conhecido. Falhas de segurança, exposição de dados ou corrupção funcional permanecem bloqueantes até correção.
+
+**Concluído quando:** problemas críticos foram corrigidos ou aceitos pelo responsável humano sob as regras acima, e cada afirmação visual importante aponta para evidência.
 
 ### 8. Encerramento e memória do projeto
 
@@ -296,6 +298,6 @@ Uma interface bonita que não resolve prioridade, fluxo e estado continua sendo 
 - [ ] Artefato executado no ambiente real.
 - [ ] Estados críticos e responsividade verificados.
 - [ ] Revisão visual possui screenshots ou evidências equivalentes.
-- [ ] Must-fix corrigidos ou aceitos explicitamente.
+- [ ] Must-fix corrigidos ou aceitos pelo responsável humano com justificativa e impacto registrados.
 - [ ] Testes e verificações finais registrados.
 - [ ] O diretório `.design/` permite retomada sem reconstrução de contexto.

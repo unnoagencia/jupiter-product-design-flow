@@ -13,11 +13,11 @@ This repository contains a reusable design-process skill. Changes must improve p
 - Every workflow phase must end with a checkable completion criterion.
 - Do not make dark mode, named aesthetics, or user confirmation mandatory by default.
 - Visual review requires evidence, not code inspection alone.
-- Run the validator tests before committing.
+- Run the reproducible validator test suite before committing.
 
 ## Verification
 
 ```bash
 python3 -m py_compile scripts/validate_design_flow.py
-python3 scripts/validate_design_flow.py <fixture> --json
+python3 -m unittest discover -s tests -v
 ```

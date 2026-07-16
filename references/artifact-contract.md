@@ -159,6 +159,16 @@ Gerado a partir de: `.design/[slug]/DESIGN_BRIEF.md`
 ## O que preservar
 - [Decisão forte que não deve ser perdida durante correções]
 
+## Aceitação humana de defeito crítico
+- **Must-fix aceito:** [item ou nenhum]
+- **Responsável humano:** [nome]
+- **Papel:** [owner, responsável de produto ou equivalente]
+- **Data da autorização:** YYYY-MM-DD
+- **Justificativa:** [decisão consciente]
+- **Impacto conhecido:** [consequência aceita]
+
+Falhas de segurança, exposição de dados ou corrupção funcional não podem ser aceitas; devem ser corrigidas.
+
 ## Verificação após correções
 | Item | Verificação executada | Resultado |
 |---|---|---|

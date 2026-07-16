@@ -3,13 +3,15 @@
 ## Ordem de consulta
 
 1. Arquivos de instrução do projeto.
-2. Brandbook estruturado (`brand.json`, `brand.md`, `DESIGN.md`, tokens).
-3. Implementação existente.
-4. Material humano ou PDF quando os arquivos estruturados não bastarem.
+2. Brandbooks e tokens descobertos no próprio repositório.
+3. Caminho configurado pela variável `JUPITER_BRANDBOOK_PATH`, quando disponível.
+4. Implementação existente.
+5. Fallback local conhecido.
+6. Material humano ou PDF quando os arquivos estruturados não bastarem.
 
 ## Júpiter Tech
 
-Quando disponível no ambiente da Júpiter, use como ponto de partida:
+Procure primeiro por `brand.json`, `brand.md`, `DESIGN.md`, arquivos de tokens e documentação da marca no repositório ativo. Se `JUPITER_BRANDBOOK_PATH` estiver configurada, use esse caminho. Somente como fallback, quando disponível no ambiente da Júpiter, consulte:
 
 ```text
 /root/workspace/brandbooks/jupiter-tech-manual/

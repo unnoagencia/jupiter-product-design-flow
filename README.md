@@ -39,7 +39,10 @@ scripts/
 ```bash
 python3 scripts/validate_design_flow.py /caminho/do/projeto/.design/minha-feature --json
 python3 scripts/validate_design_flow.py /caminho/do/projeto/.design/minha-feature --require-review --json
+python3 -m unittest discover -s tests -v
 ```
+
+O diretório `.design/` deve ser versionado junto com o projeto para preservar decisões e evidências entre agentes, colaboradores e novos clones.
 
 ## Escopo
 
