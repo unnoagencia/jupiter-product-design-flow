@@ -18,6 +18,13 @@ This repository contains a reusable design-process skill. Changes must improve p
 ## Verification
 
 ```bash
-python3 -m py_compile scripts/validate_design_flow.py
-python3 -m unittest discover -s tests -v
+python3 -m pip install --requirement requirements.txt
+npm ci
+npx playwright install chromium
+python3 -m py_compile scripts/validate_design_flow.py scripts/export_carousel.py tests/playwright_smoke.py
+npm run check:node
+npm run test:unit
+npm run test:e2e
 ```
+
+CI runs this verification on macOS and Ubuntu with Python 3.11 and 3.12. Keep `pyproject.toml`, `requirements.txt`, `package.json`, and `package-lock.json` aligned when dependencies or the release version change.

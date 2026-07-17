@@ -1,0 +1,3 @@
+# Keep this file aligned with pyproject.toml so CI and local execution resolve
+# the same runtime dependency versions.
+Pillow==11.3.0

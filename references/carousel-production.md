@@ -191,28 +191,32 @@ python3 <skill-dir>/scripts/export_carousel.py /caminho/do/carrossel \
 
 Dependências:
 
-- Node + `npx playwright`;
+- Node + Playwright fixado em `package-lock.json`;
 - Chromium do Playwright;
 - Pillow para o contact sheet.
 
 Smoke check:
 
 ```bash
-npx --no-install playwright --version
+npm ci
+npx playwright install chromium
+npx playwright --version
 python3 -c "import PIL; print(PIL.__version__)"
 ```
 
-O exportador usa `npx --no-install` para não baixar uma versão arbitrária durante a entrega. Prepare Playwright e Chromium antes da execução.
+O exportador usa somente a versão local fixada e não baixa dependências durante a entrega. Prepare Playwright e Chromium com os comandos acima.
 
 O HTML deve oferecer:
 
 - uma seção `.slide` por quadro;
 - `data-slide` único;
-- query `?export=1&slide=<id>` para isolar o quadro;
+- HTML e CSS estáticos que funcionem quando `body.export` for aplicado;
 - canvas fixo de 1080 × 1350 no modo export;
 - assets locais.
 
-Antes da captura, o exportador injeta temporariamente um marcador de prontidão, espera `document.fonts.ready`, força o carregamento das fontes declaradas, executa `img.decode()` e só então libera o screenshot. Um HAR por slide rejeita requisições HTTP/HTTPS e complementa a varredura recursiva de HTML, CSS, `srcset` e imports JavaScript estáticos.
+Durante a captura, JavaScript escrito pela página fica desativado. Um controlador Playwright confiável aplica `body.export`, seleciona o `data-slide` solicitado, espera `document.fonts.ready`, força o carregamento das fontes declaradas, executa `img.decode()` e só então libera o screenshot. Rotas HTTP e WebSocket continuam bloqueadas como defesa em profundidade, service workers ficam desativados e um HAR por slide é preservado em `.design/carousel-export/network/`.
+
+**Limite de compatibilidade:** gráficos, DOM ou conteúdo gerados por JavaScript da própria página não serão executados no export. Materialize esses elementos em HTML/CSS local antes da captura. Isso é deliberado para impedir egress por `fetch`, WebSocket, WebRTC/STUN e APIs semelhantes que não compartilham uma única rota de rede do Playwright.
 
 O contrato padrão exige `README.md`, `LEGENDA.txt` e `assets/GEIST-LICENSE.txt`. Use `--relaxed-contract` somente quando a ausência desses itens for deliberada e registrada no brief.
 

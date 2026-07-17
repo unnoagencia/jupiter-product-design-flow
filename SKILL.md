@@ -1,13 +1,13 @@
 ---
 name: jupiter-product-design-flow
 description: "Use when designing, redesigning, building, or reviewing a branded digital product, portal, dashboard, multi-step flow, complex website, or editorial carousel for Júpiter. Converts business intent into a persistent brief, proportional structure, brand-bound implementation, working artifact, and evidence-based visual QA without ceremonial checkpoints."
-version: 1.1.1
+version: 1.1.2
 author: Júpiter Tech
 license: Apache-2.0
 metadata:
   hermes:
     tags: [product-design, ui, ux, design-system, visual-qa, carousel, editorial-design, jupiter]
-    related_skills: [design-md, writing-plans, sketch, claude-design, b2b-conversion-websites, instagram-carousel-system, humanizer, hyperframes]
+    related_skills: [design-system, frontend-design, shape, brand, critique, audit, content-recycler, copy-engine]
 ---
 
 # Júpiter Product Design Flow
@@ -36,17 +36,17 @@ Use para:
 
 Não use o fluxo completo para:
 
-- uma landing page simples focada em conversão: carregue `b2b-conversion-websites`;
-- uma comparação rápida de ideias visuais: carregue `sketch`;
-- um artefato HTML isolado sem necessidade de identidade ou processo Júpiter: carregue `claude-design`;
-- apresentações e vídeos: use HyperFrames e as skills correspondentes;
+- uma landing page simples focada em conversão: carregue `frontend-design`;
+- uma comparação rápida de direções antes do código: carregue `shape`;
+- um artefato HTML isolado sem necessidade de identidade ou processo Júpiter: carregue `frontend-design`;
+- definição ou correção da identidade antes da interface: carregue `brand`;
 - uma alteração cosmética pequena e inequívoca: inspecione, implemente e teste diretamente.
 
 ## Rota especial: carrossel editorial
 
 Quando o pedido explícito for um carrossel editorial **Júpiter com artefato completo**, use este fluxo como disciplina principal e carregue `references/carousel-production.md`. Para escolher a tensão e a cadência, use `references/carousel-copy-modes.md`.
 
-Para carrossel social genérico, auditoria, estratégia ou copy sem produção de arquivos, use `instagram-carousel-system` como rota principal. Se o pedido exigir HTML, PNG, marca e QA, esta skill assume a produção e a outra funciona apenas como repertório editorial.
+Para carrossel social genérico ou reaproveitamento de conteúdo sem produção de arquivos, use `content-recycler`; para copy sem implementação, use `copy-engine`. Se o pedido exigir HTML, PNG, marca e QA, esta skill assume a produção.
 
 O default é:
 
@@ -188,7 +188,7 @@ Antes de gerar tokens:
 3. identifique lacunas reais;
 4. estenda o sistema em vez de substituí-lo.
 
-Use `design-md` quando for necessário criar ou validar um contrato de tokens. Não gere dark mode por reflexo. Crie-o apenas quando o produto, o brief ou o sistema existente exigirem.
+Use `design-system` quando for necessário criar ou validar um contrato de tokens. Não gere dark mode por reflexo. Crie-o apenas quando o produto, o brief ou o sistema existente exigirem.
 
 Não troque fontes oficiais porque uma referência usa outra. Não imponha uma “filosofia estética” sobre uma marca madura. Se a marca não tiver direção suficiente, proponha uma direção e declare a hipótese.
 
@@ -196,7 +196,7 @@ Não troque fontes oficiais porque uma referência usa outra. Não imponha uma �
 
 ### 5. Decompor em fatias verificáveis
 
-Use `writing-plans` ou o planejamento nativo do projeto para produzir `.design/<feature-slug>/TASKS.md`.
+Use `shape` ou o planejamento nativo do projeto para produzir `.design/<feature-slug>/TASKS.md`.
 
 Cada tarefa deve:
 
@@ -227,7 +227,7 @@ Regras:
 - respeite `prefers-reduced-motion` quando houver animação;
 - rode os testes relevantes e registre o resultado real.
 
-Para decisões visuais incertas, construa duas ou três variantes pequenas com `sketch` antes de contaminar a implementação principal.
+Para decisões visuais incertas, use `shape` para comparar duas ou três direções pequenas antes de contaminar a implementação principal.
 
 **Concluído quando:** existe um artefato funcional exercitado no ambiente correto e todos os requisitos declarados foram considerados.
 
@@ -238,8 +238,8 @@ A revisão não pode ser apenas leitura de código. Capture e analise o que o us
 Rotas de evidência, em ordem de adequação:
 
 1. screenshots automatizados via Playwright disponível no projeto;
-2. Browser Vision para inspeção visual e interação;
-3. HyperFrames `check --snapshots` para composições HyperFrames;
+2. `critique` para inspeção visual e de experiência sobre evidências capturadas;
+3. `audit` quando a revisão atravessar qualidade técnica, acessibilidade ou consistência sistêmica;
 4. screenshots fornecidos pelo usuário apenas quando o ambiente não puder abrir a aplicação.
 
 Capture ao menos:
