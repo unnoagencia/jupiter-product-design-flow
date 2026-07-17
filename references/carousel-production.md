@@ -13,7 +13,7 @@ Salvo pedido diferente:
 - memória de design: `.design/<slug>/`;
 - tipografia Júpiter: Geist Sans + Geist Mono;
 - imagens: congeladas localmente e creditadas;
-- sem dependência remota no HTML final.
+- zero dependência remota no grafo estático e nas requisições observadas durante o render.
 
 Arquivos esperados:
 
@@ -195,6 +195,15 @@ Dependências:
 - Chromium do Playwright;
 - Pillow para o contact sheet.
 
+Smoke check:
+
+```bash
+npx --no-install playwright --version
+python3 -c "import PIL; print(PIL.__version__)"
+```
+
+O exportador usa `npx --no-install` para não baixar uma versão arbitrária durante a entrega. Prepare Playwright e Chromium antes da execução.
+
 O HTML deve oferecer:
 
 - uma seção `.slide` por quadro;
@@ -202,6 +211,10 @@ O HTML deve oferecer:
 - query `?export=1&slide=<id>` para isolar o quadro;
 - canvas fixo de 1080 × 1350 no modo export;
 - assets locais.
+
+Antes da captura, o exportador injeta temporariamente um marcador de prontidão, espera `document.fonts.ready`, força o carregamento das fontes declaradas, executa `img.decode()` e só então libera o screenshot. Um HAR por slide rejeita requisições HTTP/HTTPS e complementa a varredura recursiva de HTML, CSS, `srcset` e imports JavaScript estáticos.
+
+O contrato padrão exige `README.md`, `LEGENDA.txt` e `assets/GEIST-LICENSE.txt`. Use `--relaxed-contract` somente quando a ausência desses itens for deliberada e registrada no brief.
 
 **Concluído quando:** PNGs, preview e ZIP foram realmente gerados e abrem corretamente.
 
@@ -229,6 +242,7 @@ Verifique por arquivo:
 
 - PNG 1080 × 1350 e não interlaçado;
 - nested assets presentes no ZIP;
+- nome do ZIP restrito ao diretório do projeto;
 - licença tipográfica incluída;
 - créditos de imagem no README;
 - `zipfile.testzip()` sem erro;

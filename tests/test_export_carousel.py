@@ -22,6 +22,7 @@ class CarouselExporterTests(unittest.TestCase):
         (root / "assets" / "photos").mkdir(parents=True)
         (root / "assets" / "font.woff2").write_bytes(b"font")
         (root / "assets" / "photos" / "scene.jpg").write_bytes(b"image")
+        (root / "assets" / "GEIST-LICENSE.txt").write_text("license", encoding="utf-8")
         sections = "\n".join(
             f'<section class="slide" data-slide="slide-{index}">Slide {index}</section>'
             for index in range(1, slide_count + 1)
@@ -57,7 +58,7 @@ class CarouselExporterTests(unittest.TestCase):
         self.addCleanup(temp.cleanup)
         with html.open("a", encoding="utf-8") as handle:
             handle.write('<img src="https://example.com/remote.jpg">')
-        with self.assertRaisesRegex(ValueError, "remote HTML dependencies"):
+        with self.assertRaisesRegex(ValueError, "remote dependency"):
             MODULE.collect_local_dependencies(html)
 
     def test_missing_local_dependency_is_rejected(self) -> None:
@@ -65,7 +66,7 @@ class CarouselExporterTests(unittest.TestCase):
         self.addCleanup(temp.cleanup)
         with html.open("a", encoding="utf-8") as handle:
             handle.write('<img src="./assets/missing.jpg">')
-        with self.assertRaisesRegex(FileNotFoundError, "missing local HTML dependencies"):
+        with self.assertRaisesRegex(FileNotFoundError, "missing local dependency"):
             MODULE.collect_local_dependencies(html)
 
     def test_collects_font_and_nested_photo_dependencies(self) -> None:
@@ -74,6 +75,64 @@ class CarouselExporterTests(unittest.TestCase):
         dependencies = MODULE.collect_local_dependencies(html)
         relative = {str(path.relative_to(root)) for path in dependencies}
         self.assertEqual(relative, {"assets/font.woff2", "assets/photos/scene.jpg"})
+
+    def test_anchor_href_is_not_treated_as_asset(self) -> None:
+        temp, _, html = self.make_project()
+        self.addCleanup(temp.cleanup)
+        with html.open("a", encoding="utf-8") as handle:
+            handle.write('<a href="https://example.com/article">source</a>')
+        MODULE.collect_local_dependencies(html)
+
+    def test_srcset_dependencies_are_collected(self) -> None:
+        temp, root, html = self.make_project()
+        self.addCleanup(temp.cleanup)
+        second = root / "assets" / "photos" / "scene-2.jpg"
+        second.write_bytes(b"image-2")
+        with html.open("a", encoding="utf-8") as handle:
+            handle.write('<source srcset="./assets/photos/scene.jpg 1x, ./assets/photos/scene-2.jpg 2x">')
+        relative = {str(path.relative_to(root)) for path in MODULE.collect_local_dependencies(html)}
+        self.assertIn("assets/photos/scene-2.jpg", relative)
+
+    def test_external_css_graph_is_collected_recursively(self) -> None:
+        temp, root, html = self.make_project()
+        self.addCleanup(temp.cleanup)
+        styles = root / "styles"
+        media = root / "media"
+        styles.mkdir()
+        media.mkdir()
+        (media / "background.png").write_bytes(b"png")
+        (styles / "main.css").write_text(".hero{background:url('../media/background.png')}", encoding="utf-8")
+        with html.open("a", encoding="utf-8") as handle:
+            handle.write('<link rel="stylesheet" href="./styles/main.css">')
+        relative = {str(path.relative_to(root)) for path in MODULE.collect_local_dependencies(html)}
+        self.assertIn("styles/main.css", relative)
+        self.assertIn("media/background.png", relative)
+
+    def test_remote_css_import_is_rejected(self) -> None:
+        temp, root, html = self.make_project()
+        self.addCleanup(temp.cleanup)
+        styles = root / "styles"
+        styles.mkdir()
+        (styles / "main.css").write_text('@import "https://example.com/remote.css";', encoding="utf-8")
+        with html.open("a", encoding="utf-8") as handle:
+            handle.write('<link rel="stylesheet" href="./styles/main.css">')
+        with self.assertRaisesRegex(ValueError, "remote dependency"):
+            MODULE.collect_local_dependencies(html)
+
+    def test_static_javascript_import_graph_is_collected(self) -> None:
+        temp, root, html = self.make_project()
+        self.addCleanup(temp.cleanup)
+        scripts = root / "scripts"
+        media = root / "media"
+        scripts.mkdir()
+        media.mkdir()
+        (media / "scene.jpg").write_bytes(b"scene")
+        (scripts / "app.js").write_text("const scene = new URL('../media/scene.jpg', import.meta.url);", encoding="utf-8")
+        with html.open("a", encoding="utf-8") as handle:
+            handle.write('<script type="module" src="./scripts/app.js"></script>')
+        relative = {str(path.relative_to(root)) for path in MODULE.collect_local_dependencies(html)}
+        self.assertIn("scripts/app.js", relative)
+        self.assertIn("media/scene.jpg", relative)
 
     def test_dependency_cannot_escape_project(self) -> None:
         temp, root, html = self.make_project()
@@ -86,12 +145,68 @@ class CarouselExporterTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "escapes the project"):
             MODULE.collect_local_dependencies(html, root)
 
+    def test_zip_name_cannot_escape_project(self) -> None:
+        for value in ("../outside.zip", "/tmp/outside.zip", "nested/outside.zip", "carousel"):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                MODULE.validate_zip_name(value)
+
+    def test_ready_html_injects_a_waitable_marker(self) -> None:
+        temp, _, html = self.make_project()
+        self.addCleanup(temp.cleanup)
+        ready = MODULE.make_ready_html(html)
+        self.addCleanup(lambda: ready.unlink(missing_ok=True))
+        text = ready.read_text(encoding="utf-8")
+        self.assertIn("data-carousel-readiness", text)
+        self.assertIn("document.fonts.ready", text)
+        self.assertIn("image.decode()", text)
+
     def test_bundled_template_has_eight_unique_slides_and_brand_assets(self) -> None:
         template = Path(__file__).resolve().parents[1] / "templates" / "carousel-starter.html"
         text = template.read_text(encoding="utf-8")
         self.assertEqual(len(MODULE.discover_slides(template)), 8)
         self.assertIn("GeistMono-Medium.woff2", text)
         self.assertEqual(text.count("./assets/mark-white.svg"), 8)
+
+    def test_runtime_har_rejects_remote_requests(self) -> None:
+        temp, root, _ = self.make_project()
+        self.addCleanup(temp.cleanup)
+        har = root / "runtime.har"
+        har.write_text(
+            '{"log":{"entries":[{"request":{"url":"https://example.com/tracker.js"}}]}}',
+            encoding="utf-8",
+        )
+        with self.assertRaisesRegex(ValueError, "remote request"):
+            MODULE.dependencies_from_har(har, root)
+
+    def test_package_requires_readme_caption_and_font_license(self) -> None:
+        temp, root, html = self.make_project()
+        self.addCleanup(temp.cleanup)
+        (root / "LEGENDA.txt").unlink()
+        slide = root / "slide.png"
+        preview = root / "preview.png"
+        Image.new("RGB", MODULE.VIEWPORT, "white").save(slide, format="PNG")
+        Image.new("RGB", (696, 1740), "white").save(preview, format="PNG")
+        with self.assertRaisesRegex(FileNotFoundError, "LEGENDA.txt"):
+            MODULE.package_project(root, html, [slide], preview, "carousel.zip")
+
+    def test_relaxed_contract_is_explicit(self) -> None:
+        temp, root, html = self.make_project()
+        self.addCleanup(temp.cleanup)
+        for path in MODULE.required_contract_files(root):
+            path.unlink(missing_ok=True)
+        slide = root / "slide.png"
+        preview = root / "preview.png"
+        Image.new("RGB", MODULE.VIEWPORT, "white").save(slide, format="PNG")
+        Image.new("RGB", (696, 1740), "white").save(preview, format="PNG")
+        package = MODULE.package_project(
+            root,
+            html,
+            [slide],
+            preview,
+            "carousel.zip",
+            strict_contract=False,
+        )
+        self.assertTrue(package.is_file())
 
     def test_package_recurses_nested_assets_and_is_integral(self) -> None:
         temp, root, html = self.make_project()

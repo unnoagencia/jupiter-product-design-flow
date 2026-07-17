@@ -1,7 +1,7 @@
 ---
 name: jupiter-product-design-flow
 description: "Use when designing, redesigning, building, or reviewing a branded digital product, portal, dashboard, multi-step flow, complex website, or editorial carousel for Júpiter. Converts business intent into a persistent brief, proportional structure, brand-bound implementation, working artifact, and evidence-based visual QA without ceremonial checkpoints."
-version: 1.1.0
+version: 1.1.1
 author: Júpiter Tech
 license: Apache-2.0
 metadata:
@@ -44,7 +44,9 @@ Não use o fluxo completo para:
 
 ## Rota especial: carrossel editorial
 
-Quando o pedido explícito for um carrossel, use este fluxo como disciplina principal e carregue `references/carousel-production.md`. Para escolher a tensão e a cadência, use `references/carousel-copy-modes.md`.
+Quando o pedido explícito for um carrossel editorial **Júpiter com artefato completo**, use este fluxo como disciplina principal e carregue `references/carousel-production.md`. Para escolher a tensão e a cadência, use `references/carousel-copy-modes.md`.
+
+Para carrossel social genérico, auditoria, estratégia ou copy sem produção de arquivos, use `instagram-carousel-system` como rota principal. Se o pedido exigir HTML, PNG, marca e QA, esta skill assume a produção e a outra funciona apenas como repertório editorial.
 
 O default é:
 

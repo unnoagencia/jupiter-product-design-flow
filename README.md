@@ -53,9 +53,14 @@ python3 -m unittest discover -s tests -v
 A rota de carrossel inclui sete modos de copy, capa orientada por curiosidade, passe de ritmo oral, imagem aprovada pelo estado ou ação representada, Geist Sans/Mono, exportação 1080 × 1350, contact sheet e pacote recursivo de assets.
 
 ```bash
+npx --no-install playwright --version
+python3 -c "import PIL; print(PIL.__version__)"
+
 python3 scripts/export_carousel.py /caminho/do/carrossel \
   --zip carousel-meu-slug.zip
 ```
+
+Pré-requisitos: Python 3.11+, Pillow, Node, Playwright CLI já instalado e Chromium do Playwright disponível. O exportador usa `npx --no-install`; ele não instala dependências silenciosamente durante a entrega.
 
 Use `references/carousel-production.md` para o fluxo completo e `references/carousel-copy-modes.md` para escolher entre diagnóstico operacional, tese de founder, caso narrativo, framework, reframe, objeção e prova comentada.
 
