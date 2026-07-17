@@ -1,20 +1,20 @@
 ---
 name: jupiter-product-design-flow
-description: "Use when designing, redesigning, building, or reviewing a branded digital product, portal, dashboard, multi-step flow, or complex website for Júpiter. Converts business intent into a persistent design brief, optional information architecture, brand-bound implementation plan, working artifact, and evidence-based visual QA without forcing the user through ceremonial checkpoints."
-version: 1.0.0
+description: "Use when designing, redesigning, building, or reviewing a branded digital product, portal, dashboard, multi-step flow, complex website, or editorial carousel for Júpiter. Converts business intent into a persistent brief, proportional structure, brand-bound implementation, working artifact, and evidence-based visual QA without ceremonial checkpoints."
+version: 1.1.0
 author: Júpiter Tech
 license: Apache-2.0
 metadata:
   hermes:
-    tags: [product-design, ui, ux, design-system, visual-qa, jupiter]
-    related_skills: [design-md, writing-plans, sketch, claude-design, b2b-conversion-websites, hyperframes]
+    tags: [product-design, ui, ux, design-system, visual-qa, carousel, editorial-design, jupiter]
+    related_skills: [design-md, writing-plans, sketch, claude-design, b2b-conversion-websites, instagram-carousel-system, humanizer, hyperframes]
 ---
 
 # Júpiter Product Design Flow
 
 ## Visão geral
 
-Este workflow dá processo ao agente antes de dar liberdade estética. Ele transforma uma necessidade de negócio em decisões persistidas, arquitetura proporcional à complexidade, implementação aderente à marca e revisão visual baseada em evidências.
+Este workflow dá processo ao agente antes de dar liberdade estética. Ele transforma uma necessidade de negócio em decisões persistidas, estrutura proporcional à complexidade, implementação aderente à marca e revisão visual baseada em evidências. A mesma disciplina cobre produto digital e carrossel editorial Júpiter, com uma rota específica para narrativa, copy, imagem e exportação.
 
 Princípio central:
 
@@ -31,15 +31,38 @@ Use para:
 - funcionalidades que atravessam várias telas, estados ou perfis de usuário;
 - projetos em que brandbook, tokens e componentes existentes precisam ser preservados;
 - revisão visual e funcional antes de publicação;
-- trabalhos que precisam deixar memória de design para futuras sessões e agentes.
+- trabalhos que precisam deixar memória de design para futuras sessões e agentes;
+- carrosséis editoriais Júpiter com copy, fotografia, HTML, PNG, legenda e pacote final.
 
 Não use o fluxo completo para:
 
 - uma landing page simples focada em conversão: carregue `b2b-conversion-websites`;
 - uma comparação rápida de ideias visuais: carregue `sketch`;
-- um artefato HTML isolado sem produto por trás: carregue `claude-design`;
+- um artefato HTML isolado sem necessidade de identidade ou processo Júpiter: carregue `claude-design`;
 - apresentações e vídeos: use HyperFrames e as skills correspondentes;
 - uma alteração cosmética pequena e inequívoca: inspecione, implemente e teste diretamente.
+
+## Rota especial: carrossel editorial
+
+Quando o pedido explícito for um carrossel, use este fluxo como disciplina principal e carregue `references/carousel-production.md`. Para escolher a tensão e a cadência, use `references/carousel-copy-modes.md`.
+
+O default é:
+
+- 8 slides em 1080 × 1350;
+- capa com curiosidade útil, sem entregar o mecanismo cedo;
+- progressão por cena, mecanismo, exemplo, controle, exceção, primeiro movimento e consequência;
+- copy lida em voz alta e corrigida quando todas as telas tiverem a mesma pressão;
+- fotografia ou recorte em dois ou três momentos com aprovação pelo verbo ou estado representado;
+- Geist Sans + Geist Mono conforme o manual, Inter apenas como fallback;
+- HTML local, PNGs, contact sheet, legenda, README, créditos e ZIP portátil;
+- zero dependência remota no artefato final;
+- QA visual, DOM, fontes, imagens e integridade do pacote.
+
+Use `templates/carousel-starter.html` como scaffold opcional e `scripts/export_carousel.py` para renderizar e empacotar. O template não deve determinar a direção criativa nem sair com texto de exemplo.
+
+Uma sequência linear simples não exige `INFORMATION_ARCHITECTURE.md`. Persistir brief, tarefas, review e screenshots continua obrigatório para uma entrega completa.
+
+**Concluído quando:** a mudança de percepção, o modo de copy, a função de cada slide, os momentos de imagem, a tipografia e o contrato de saída estão registrados antes da implementação.
 
 ## Contrato de artefatos
 
@@ -225,6 +248,8 @@ Capture ao menos:
 - dark mode, somente se existir;
 - página inteira ou área suficiente para avaliar hierarquia e continuidade.
 
+Para carrossel, substitua a matriz acima por: capa integral, slide mais denso, todos os slides com fotografia, fechamento e contact sheet. Além da inspeção visual, verifique bounds no DOM, fontes computadas, dependências locais e entradas reais do ZIP.
+
 Use `references/qa-matrix.md`. Registre em `DESIGN_REVIEW.md`:
 
 - evidências capturadas e caminhos;
@@ -285,6 +310,10 @@ Uma interface bonita que não resolve prioridade, fluxo e estado continua sendo 
 7. **Confundir tarefa técnica com fatia de produto.** A unidade de trabalho deve ser algo que o usuário consegue experimentar.
 8. **Ignorar contexto do repositório.** Antes de criar um componente, prove que ele ainda não existe.
 9. **Parar antes da execução.** Quando o pedido é construir, o entregável é artefato funcionando e validado.
+10. **Resolver a capa cedo demais.** Uma tese completa pode matar a curiosidade antes do primeiro swipe.
+11. **Aprovar imagem pelo substantivo.** A foto pode ter o objeto certo e comunicar o verbo errado.
+12. **Empacotar apenas a pasta.** Colete assets recursivamente e prove que fontes e imagens estão dentro do ZIP.
+13. **Parar no fallback tipográfico.** Para Júpiter, Inter é contingência; Geist Sans e Geist Mono são a escolha final quando disponíveis.
 
 ## Checklist de verificação
 
@@ -301,3 +330,6 @@ Uma interface bonita que não resolve prioridade, fluxo e estado continua sendo 
 - [ ] Must-fix corrigidos ou aceitos pelo responsável humano com justificativa e impacto registrados.
 - [ ] Testes e verificações finais registrados.
 - [ ] O diretório `.design/` permite retomada sem reconstrução de contexto.
+- [ ] Se for carrossel, modo de copy, ritmo, função das imagens e payoff foram verificados.
+- [ ] Se for carrossel Júpiter, Geist Sans/Mono foram confirmadas no navegador e a licença acompanha o pacote.
+- [ ] Se for carrossel, PNGs, contact sheet, legenda, README e ZIP íntegro foram gerados e abertos.
