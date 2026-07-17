@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import importlib.util
+import sys
 import tempfile
 import unittest
 import zipfile
 from pathlib import Path
+from unittest import mock
 
 from PIL import Image
 
@@ -18,7 +20,9 @@ SPEC.loader.exec_module(MODULE)
 class CarouselExporterTests(unittest.TestCase):
     def make_project(self, slide_count: int = 8) -> tuple[tempfile.TemporaryDirectory, Path, Path]:
         temp = tempfile.TemporaryDirectory()
-        root = Path(temp.name)
+        # resolve() normalizes macOS' /var -> /private/var alias so production
+        # paths and test assertions share the same canonical root.
+        root = Path(temp.name).resolve()
         (root / "assets" / "photos").mkdir(parents=True)
         (root / "assets" / "font.woff2").write_bytes(b"font")
         (root / "assets" / "photos" / "scene.jpg").write_bytes(b"image")
@@ -150,15 +154,54 @@ class CarouselExporterTests(unittest.TestCase):
             with self.subTest(value=value), self.assertRaises(ValueError):
                 MODULE.validate_zip_name(value)
 
-    def test_ready_html_injects_a_waitable_marker(self) -> None:
+    def test_ready_html_uses_original_file_without_injection(self) -> None:
         temp, _, html = self.make_project()
         self.addCleanup(temp.cleanup)
         ready = MODULE.make_ready_html(html)
+        self.assertEqual(ready, html)
+        self.assertNotIn("data-carousel-readiness", ready.read_text(encoding="utf-8"))
+
+    def test_ready_html_does_not_follow_fixed_name_symlink(self) -> None:
+        temp, root, html = self.make_project()
+        self.addCleanup(temp.cleanup)
+        outside = root.parent / f"{root.name}-outside.html"
+        outside.write_text("do not overwrite", encoding="utf-8")
+        self.addCleanup(lambda: outside.unlink(missing_ok=True))
+        (root / ".carousel-export.html").symlink_to(outside)
+
+        ready = MODULE.make_ready_html(html)
         self.addCleanup(lambda: ready.unlink(missing_ok=True))
-        text = ready.read_text(encoding="utf-8")
-        self.assertIn("data-carousel-readiness", text)
-        self.assertIn("document.fonts.ready", text)
-        self.assertIn("image.decode()", text)
+
+        self.assertEqual(outside.read_text(encoding="utf-8"), "do not overwrite")
+        self.assertEqual(ready, html)
+        self.assertFalse(ready.is_symlink())
+
+    def test_main_refuses_slides_directory_symlink_escape(self) -> None:
+        temp, root, _ = self.make_project(slide_count=1)
+        self.addCleanup(temp.cleanup)
+        outside = root.parent / f"{root.name}-outside-slides"
+        outside.mkdir()
+        self.addCleanup(lambda: outside.rmdir())
+        (root / "slides").symlink_to(outside, target_is_directory=True)
+
+        argv = ["export_carousel.py", str(root), "--expected", "1", "--relaxed-contract"]
+        with mock.patch.object(sys, "argv", argv), self.assertRaisesRegex(ValueError, "symlink"):
+            MODULE.main()
+        self.assertEqual(list(outside.iterdir()), [])
+
+    def test_main_refuses_slide_output_symlink_escape(self) -> None:
+        temp, root, _ = self.make_project(slide_count=1)
+        self.addCleanup(temp.cleanup)
+        (root / "slides").mkdir()
+        outside = root.parent / f"{root.name}-outside.png"
+        outside.write_bytes(b"do not overwrite")
+        self.addCleanup(lambda: outside.unlink(missing_ok=True))
+        (root / "slides" / "slide-01.png").symlink_to(outside)
+
+        argv = ["export_carousel.py", str(root), "--expected", "1", "--relaxed-contract"]
+        with mock.patch.object(sys, "argv", argv), self.assertRaisesRegex(ValueError, "symlink"):
+            MODULE.main()
+        self.assertEqual(outside.read_bytes(), b"do not overwrite")
 
     def test_bundled_template_has_eight_unique_slides_and_brand_assets(self) -> None:
         template = Path(__file__).resolve().parents[1] / "templates" / "carousel-starter.html"
@@ -233,6 +276,21 @@ class CarouselExporterTests(unittest.TestCase):
         self.assertIn("media/proof.jpg", names)
         self.assertIn("slides/slide-08.png", names)
         self.assertIn("preview-contact-sheet.png", names)
+
+    def test_package_removes_temporary_zip_after_validation_failure(self) -> None:
+        temp, root, html = self.make_project()
+        self.addCleanup(temp.cleanup)
+        slide = root / "slide.png"
+        preview = root / "preview.png"
+        Image.new("RGB", MODULE.VIEWPORT, "white").save(slide, format="PNG")
+        Image.new("RGB", (696, 1740), "white").save(preview, format="PNG")
+
+        with mock.patch.object(zipfile.ZipFile, "testzip", side_effect=RuntimeError("forced validation failure")):
+            with self.assertRaisesRegex(RuntimeError, "forced validation failure"):
+                MODULE.package_project(root, html, [slide], preview, "carousel.zip")
+
+        self.assertFalse((root / "carousel.zip").exists())
+        self.assertEqual(list(root.glob(".carousel.zip.*.zip")), [])
 
 
 if __name__ == "__main__":

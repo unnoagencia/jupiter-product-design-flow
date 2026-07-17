@@ -3,13 +3,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
+import tempfile
 import zipfile
 from html.parser import HTMLParser
 from pathlib import Path
-from urllib.parse import unquote, urlencode, urlparse
+from urllib.parse import unquote, urlparse
 
 try:
     from PIL import Image, ImageDraw, ImageOps
@@ -26,36 +28,6 @@ JS_IMPORT_RE = re.compile(
 )
 JS_DYNAMIC_IMPORT_RE = re.compile(r"\bimport\(\s*['\"]([^'\"]+)['\"]\s*\)", re.I)
 JS_NEW_URL_RE = re.compile(r"\bnew\s+URL\(\s*['\"]([^'\"]+)['\"]\s*,\s*import\.meta\.url\s*\)", re.I)
-READY_SELECTOR = '[data-carousel-ready="true"]'
-READY_SCRIPT = """
-<script data-carousel-readiness>
-(() => {
-  async function markReady() {
-    try {
-      await document.fonts.ready;
-      await Promise.all(Array.from(document.fonts).map((font) => font.load()));
-      const images = Array.from(document.images);
-      await Promise.all(images.map((image) => image.decode()));
-      if (images.some((image) => !image.complete || image.naturalWidth === 0)) {
-        throw new Error('one or more images failed to load');
-      }
-      document.documentElement.dataset.carouselReady = 'true';
-    } catch (error) {
-      document.documentElement.dataset.carouselReady = 'error';
-      document.documentElement.dataset.carouselError = String(error);
-      console.error('carousel readiness failed', error);
-    }
-  }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', markReady, { once: true });
-  } else {
-    markReady();
-  }
-})();
-</script>
-""".strip()
-
-
 class SlideParser(HTMLParser):
     def __init__(self) -> None:
         super().__init__()
@@ -173,18 +145,84 @@ def collect_local_dependencies(html_path: Path, project_root: Path | None = None
     return dependencies
 
 
+def _lexical_absolute(path: Path) -> Path:
+    """Return an absolute path without resolving attacker-controlled symlinks."""
+    return Path(os.path.abspath(os.fspath(path)))
+
+
+def _contained_output_path(path: Path, project: Path) -> tuple[Path, Path]:
+    root = project.resolve(strict=True)
+    project_lexical = _lexical_absolute(project)
+    candidate = _lexical_absolute(path)
+    # macOS exposes temporary directories through both /var and /private/var.
+    # Preserve the caller's project-relative path while normalizing the root.
+    if candidate.is_relative_to(project_lexical):
+        candidate = root / candidate.relative_to(project_lexical)
+    if not candidate.is_relative_to(root):
+        raise ValueError(f"output path escapes the project directory: {path}")
+    return candidate, root
+
+
+def ensure_output_directory(directory: Path, project: Path) -> Path:
+    """Create an output directory one component at a time, refusing symlinks."""
+    candidate, root = _contained_output_path(directory, project)
+    current = root
+    for part in candidate.relative_to(root).parts:
+        current = current / part
+        try:
+            metadata = current.lstat()
+        except FileNotFoundError:
+            current.mkdir()
+            metadata = current.lstat()
+        if current.is_symlink():
+            raise ValueError(f"output directory cannot be a symlink: {current}")
+        if not current.is_dir():
+            raise ValueError(f"output directory component is not a directory: {current}")
+        # Keep the lstat above explicit: it prevents pathlib's is_dir result from
+        # being the only check and documents the no-follow invariant.
+        del metadata
+    return candidate
+
+
+def validate_output_file(path: Path, project: Path) -> Path:
+    candidate, _ = _contained_output_path(path, project)
+    ensure_output_directory(candidate.parent, project)
+    try:
+        candidate.lstat()
+    except FileNotFoundError:
+        return candidate
+    if candidate.is_symlink():
+        raise ValueError(f"output file cannot be a symlink: {candidate}")
+    if not candidate.is_file():
+        raise ValueError(f"output path is not a regular file: {candidate}")
+    return candidate
+
+
+def secure_temporary_file(destination: Path, project: Path, suffix: str) -> Path:
+    destination = validate_output_file(destination, project)
+    descriptor, name = tempfile.mkstemp(
+        prefix=f".{destination.name}.",
+        suffix=suffix,
+        dir=destination.parent,
+    )
+    os.close(descriptor)
+    return Path(name)
+
+
+def atomic_replace(temp_path: Path, destination: Path, project: Path) -> Path:
+    destination = validate_output_file(destination, project)
+    if temp_path.is_symlink() or not temp_path.is_file():
+        raise ValueError(f"temporary output is not a regular file: {temp_path}")
+    os.replace(temp_path, destination)
+    return destination
+
+
 def make_ready_html(html_path: Path) -> Path:
-    text = html_path.read_text(encoding="utf-8")
-    if "data-carousel-readiness" in text:
-        return html_path
-    marker = "</body>"
-    injected = text.replace(marker, READY_SCRIPT + "\n" + marker, 1) if marker in text else text + "\n" + READY_SCRIPT
-    output = html_path.parent / ".carousel-export.html"
-    output.write_text(injected, encoding="utf-8")
-    return output
+    """Compatibility boundary: readiness is now controlled by trusted Playwright evaluation."""
+    return html_path
 
 
-def dependencies_from_har(har_path: Path, project: Path) -> list[Path]:
+def dependencies_from_har(har_path: Path, project: Path, generated_html: Path | None = None) -> list[Path]:
     if not har_path.is_file():
         raise FileNotFoundError(f"Playwright did not create HAR evidence: {har_path}")
     payload = json.loads(har_path.read_text(encoding="utf-8"))
@@ -198,7 +236,7 @@ def dependencies_from_har(har_path: Path, project: Path) -> list[Path]:
             path = Path(unquote(parsed.path)).resolve()
             if not path.is_relative_to(project.resolve()):
                 raise ValueError(f"runtime dependency escapes the project directory: {request_url}")
-            if path.name == ".carousel-export.html":
+            if generated_html is not None and path == generated_html.resolve():
                 continue
             if not path.is_file():
                 raise FileNotFoundError(f"runtime dependency is missing: {path}")
@@ -207,43 +245,62 @@ def dependencies_from_har(har_path: Path, project: Path) -> list[Path]:
     return dependencies
 
 
-def render_slide(html_path: Path, project: Path, slide_id: str, output: Path, wait_ms: int) -> list[Path]:
-    query = urlencode({"export": "1", "slide": slide_id})
-    url = f"{html_path.resolve().as_uri()}?{query}"
-    har_path = output.with_suffix(".har")
+def render_slide(
+    html_path: Path,
+    project: Path,
+    slide_id: str,
+    output: Path,
+    wait_ms: int,
+    har_path: Path,
+) -> list[Path]:
+    url = html_path.resolve().as_uri()
+    output = validate_output_file(output, project)
+    har_path = validate_output_file(har_path, project)
+    screenshot_temp = secure_temporary_file(output, project, ".png")
+    har_temp = secure_temporary_file(har_path, project, ".har")
+    runner = Path(__file__).with_name("render_carousel.mjs")
     command = [
-        "npx",
-        "--no-install",
-        "playwright",
-        "screenshot",
-        "--browser",
-        "chromium",
-        "--viewport-size",
-        f"{VIEWPORT[0]},{VIEWPORT[1]}",
-        "--wait-for-selector",
-        READY_SELECTOR,
-        "--timeout",
-        "30000",
-        "--save-har",
-        str(har_path),
+        "node",
+        str(runner),
+        "--url",
+        url,
+        "--project",
+        str(project.resolve()),
+        "--output",
+        str(screenshot_temp),
+        "--har",
+        str(har_temp),
+        "--width",
+        str(VIEWPORT[0]),
+        "--height",
+        str(VIEWPORT[1]),
+        "--slide",
+        slide_id,
+        "--wait-ms",
+        str(wait_ms),
     ]
-    if wait_ms:
-        command.extend(["--wait-for-timeout", str(wait_ms)])
-    command.extend([url, str(output)])
+    completed: subprocess.CompletedProcess[str] | None = None
     try:
-        subprocess.run(command, check=True)
-        runtime_dependencies = dependencies_from_har(har_path, project)
+        completed = subprocess.run(command, check=False, capture_output=True, text=True)
+        if har_temp.is_file() and har_temp.stat().st_size:
+            atomic_replace(har_temp, har_path, project)
+        runtime_dependencies = dependencies_from_har(har_path, project, html_path)
+        if completed.returncode:
+            diagnostic = (completed.stderr or completed.stdout or "renderer failed").strip().splitlines()[-1]
+            raise RuntimeError(f"secure Playwright renderer failed: {diagnostic}")
+        with Image.open(screenshot_temp) as image:
+            if image.size != VIEWPORT:
+                raise ValueError(f"wrong dimensions for {output.name}: {image.size}")
+            if image.format != "PNG":
+                raise ValueError(f"wrong format for {output.name}: {image.format}")
+        atomic_replace(screenshot_temp, output, project)
+        return runtime_dependencies
     finally:
-        har_path.unlink(missing_ok=True)
-    with Image.open(output) as image:
-        if image.size != VIEWPORT:
-            raise ValueError(f"wrong dimensions for {output.name}: {image.size}")
-        if image.format != "PNG":
-            raise ValueError(f"wrong format for {output.name}: {image.format}")
-    return runtime_dependencies
+        screenshot_temp.unlink(missing_ok=True)
+        har_temp.unlink(missing_ok=True)
 
 
-def make_contact_sheet(outputs: list[Path], output: Path) -> None:
+def make_contact_sheet(outputs: list[Path], output: Path, project: Path | None = None) -> None:
     columns = 2
     thumb = (324, 405)
     gap = 24
@@ -263,7 +320,16 @@ def make_contact_sheet(outputs: list[Path], output: Path) -> None:
             preview = ImageOps.fit(source.convert("RGB"), thumb, method=Image.Resampling.LANCZOS)
         canvas.paste(preview, (x, y))
         draw.rectangle((x, y, x + thumb[0] - 1, y + thumb[1] - 1), outline="#B9BBC0", width=1)
-    canvas.save(output, format="PNG", optimize=True)
+    if project is None:
+        canvas.save(output, format="PNG", optimize=True)
+        return
+    output = validate_output_file(output, project)
+    temporary = secure_temporary_file(output, project, ".png")
+    try:
+        canvas.save(temporary, format="PNG", optimize=True)
+        atomic_replace(temporary, output, project)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def validate_zip_name(zip_name: str) -> str:
@@ -314,26 +380,29 @@ def package_project(
             unique.append(path)
             seen.add(resolved)
 
-    output = (project / zip_name).resolve()
-    if not output.is_relative_to(project.resolve()):
-        raise ValueError("ZIP output escapes project directory")
-    with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
-        for path in unique:
-            archive.write(path, path.resolve().relative_to(project.resolve()))
+    output = validate_output_file(project / zip_name, project)
+    temporary = secure_temporary_file(output, project, ".zip")
+    try:
+        with zipfile.ZipFile(temporary, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
+            for path in unique:
+                archive.write(path, path.resolve().relative_to(project.resolve()))
 
-    with zipfile.ZipFile(output) as archive:
-        broken = archive.testzip()
-        if broken:
-            raise ValueError(f"corrupt ZIP entry: {broken}")
-        names = set(archive.namelist())
-        required_paths = [html_path, preview, *outputs, *(dependencies or [])]
-        if strict_contract:
-            required_paths.extend(contract)
-        required = {str(path.resolve().relative_to(project.resolve())) for path in required_paths}
-        missing = sorted(required - names)
-        if missing:
-            raise ValueError("missing ZIP entries: " + ", ".join(missing))
-    return output
+        with zipfile.ZipFile(temporary) as archive:
+            broken = archive.testzip()
+            if broken:
+                raise ValueError(f"corrupt ZIP entry: {broken}")
+            names = set(archive.namelist())
+            required_paths = [html_path, preview, *outputs, *(dependencies or [])]
+            if strict_contract:
+                required_paths.extend(contract)
+            required = {str(path.resolve().relative_to(project.resolve())) for path in required_paths}
+            missing = sorted(required - names)
+            if missing:
+                raise ValueError("missing ZIP entries: " + ", ".join(missing))
+        atomic_replace(temporary, output, project)
+        return output
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def parse_args() -> argparse.Namespace:
@@ -371,14 +440,15 @@ def main() -> int:
     dependencies = collect_local_dependencies(html_path, project)
     ready_html = make_ready_html(html_path)
 
-    output_dir = project / "slides"
-    output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir = ensure_output_directory(project / "slides", project)
+    evidence_dir = ensure_output_directory(project / ".design" / "carousel-export" / "network", project)
     outputs: list[Path] = []
     runtime_dependencies: list[Path] = []
     try:
         for index, slide_id in enumerate(slides, start=1):
-            output = output_dir / f"slide-{index:02d}.png"
-            discovered = render_slide(ready_html, project, slide_id, output, args.wait_ms)
+            output = validate_output_file(output_dir / f"slide-{index:02d}.png", project)
+            har = validate_output_file(evidence_dir / f"slide-{index:02d}.har", project)
+            discovered = render_slide(ready_html, project, slide_id, output, args.wait_ms, har)
             for path in discovered:
                 if path != html_path and path not in runtime_dependencies:
                     runtime_dependencies.append(path)
@@ -388,8 +458,8 @@ def main() -> int:
             ready_html.unlink(missing_ok=True)
 
     all_dependencies = list(dict.fromkeys([*dependencies, *runtime_dependencies]))
-    preview = project / "preview-contact-sheet.png"
-    make_contact_sheet(outputs, preview)
+    preview = validate_output_file(project / "preview-contact-sheet.png", project)
+    make_contact_sheet(outputs, preview, project)
     package = package_project(
         project,
         html_path,
@@ -410,6 +480,6 @@ def main() -> int:
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
-    except (FileNotFoundError, UnicodeDecodeError, ValueError, json.JSONDecodeError, subprocess.CalledProcessError) as exc:
+    except (FileNotFoundError, UnicodeDecodeError, ValueError, RuntimeError, json.JSONDecodeError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         raise SystemExit(1)

@@ -35,9 +35,28 @@ references/
 └── qa-matrix.md
 scripts/
 ├── export_carousel.py
+├── render_carousel.mjs
 └── validate_design_flow.py
 templates/
 └── carousel-starter.html
+tests/
+└── playwright_smoke.py
+package.json
+package-lock.json
+pyproject.toml
+requirements.txt
+```
+
+## Ambiente reproduzível
+
+Use Python 3.11 ou 3.12 e o Node 22 indicado pela CI. As versões de Pillow e Playwright estão fixadas nos manifests; `package-lock.json` preserva a árvore Node resolvida.
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --requirement requirements.txt
+npm ci
+npx playwright install chromium
 ```
 
 ## Validação dos artefatos de uma feature
@@ -45,7 +64,10 @@ templates/
 ```bash
 python3 scripts/validate_design_flow.py /caminho/do/projeto/.design/minha-feature --json
 python3 scripts/validate_design_flow.py /caminho/do/projeto/.design/minha-feature --require-review --json
-python3 -m unittest discover -s tests -v
+python3 -m py_compile scripts/validate_design_flow.py scripts/export_carousel.py tests/playwright_smoke.py
+npm run check:node
+npm run test:unit
+npm run test:e2e
 ```
 
 ## Carrossel editorial
@@ -53,14 +75,18 @@ python3 -m unittest discover -s tests -v
 A rota de carrossel inclui sete modos de copy, capa orientada por curiosidade, passe de ritmo oral, imagem aprovada pelo estado ou ação representada, Geist Sans/Mono, exportação 1080 × 1350, contact sheet e pacote recursivo de assets.
 
 ```bash
-npx --no-install playwright --version
+npm ci
+npx playwright install chromium
+npx playwright --version
 python3 -c "import PIL; print(PIL.__version__)"
 
 python3 scripts/export_carousel.py /caminho/do/carrossel \
   --zip carousel-meu-slug.zip
 ```
 
-Pré-requisitos: Python 3.11+, Pillow, Node, Playwright CLI já instalado e Chromium do Playwright disponível. O exportador usa `npx --no-install`; ele não instala dependências silenciosamente durante a entrega.
+Pré-requisitos: Python 3.11 ou 3.12, dependências Python de `requirements.txt`, dependências Node instaladas com `npm ci` e Chromium do Playwright disponível. O exportador usa a dependência local fixada; ele não instala dependências silenciosamente durante a entrega.
+
+Por segurança, a exportação desativa JavaScript escrito pela página. O controlador confiável seleciona cada slide, aplica `body.export` e aguarda fontes e imagens; conteúdo gerado dinamicamente deve ser materializado em HTML/CSS local antes da captura. HTTP e WebSocket são bloqueados como defesa em profundidade, service workers ficam desativados e o HAR de cada slide é preservado em `.design/carousel-export/network/`.
 
 Use `references/carousel-production.md` para o fluxo completo e `references/carousel-copy-modes.md` para escolher entre diagnóstico operacional, tese de founder, caso narrativo, framework, reframe, objeção e prova comentada.
 
